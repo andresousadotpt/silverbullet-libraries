@@ -18,6 +18,14 @@ actionButton.define {
 }
 ````
 
+## Encrypted Notes
+
+Create and open `.sben` notes encrypted locally with AES-256-GCM. **Encrypted Note: New** creates a blank encrypted-note container; choose its passphrase in the editor. **Encrypted Note: Open** selects an existing encrypted note. Every open requires its passphrase; a wrong passphrase or altered ciphertext displays an error and never renders the note body.
+
+The passphrase is never stored or recoverable. Use a strong, unique passphrase and keep an independent backup: losing it permanently loses the note. The encrypted file protects its contents at rest, but filenames, size, and timestamps remain visible. While unlocked, plaintext necessarily exists in the browser editor’s memory; it is not protection against a compromised device, browser extension, or already-authorized SilverBullet client.
+
+Install it from the catalog or directly with `ghr:andresousadotpt/silverbullet-plugs/EncryptedNotes.md`.
+
 ## Spreadsheet
 
 A local spreadsheet editor for SilverBullet's document viewer, with a bundled FortuneSheet canvas grid. Workbooks stay in your space; the editor has no runtime CDN, telemetry, or external service dependency.

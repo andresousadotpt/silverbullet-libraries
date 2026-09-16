@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Encrypted note</title><!-- STYLE --></head>
+<body>
+  <header><div><strong id="filename">Encrypted note</strong><span id="state">Locked</span></div><div><button id="lock" disabled>Lock</button><button id="save" disabled>Save</button></div></header>
+  <main>
+    <section id="unlock" aria-labelledby="unlock-title"><h1 id="unlock-title">Encrypted note</h1><p id="instruction">Enter the passphrase to decrypt this note.</p><form id="unlock-form"><label for="passphrase">Passphrase</label><input id="passphrase" type="password" autocomplete="current-password" required><label id="confirm-label" for="confirm">Confirm passphrase</label><input id="confirm" type="password" autocomplete="new-password"><button id="unlock-button" type="submit">Decrypt note</button></form><p id="error" role="alert"></p></section>
+    <textarea id="content" aria-label="Decrypted note" spellcheck="true" hidden></textarea>
+  </main>
+  <footer id="status" role="status">Waiting for an encrypted note…</footer>
+  <!-- SCRIPT -->
+</body>
+</html>

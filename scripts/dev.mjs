@@ -34,6 +34,31 @@ createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript' });
     res.end(await readFile('dist/spreadsheet.plug.js')); return;
   }
+  if (req.url === '/encrypted-note.plug.js') {
+    res.writeHead(200, { 'Content-Type': 'text/javascript' });
+    res.end(await readFile('dist/encrypted-note.plug.js')); return;
+  }
+  if (req.url === '/encrypted-note') {
+    try {
+      const editor = (await readFile('dist/encrypted-note.html', 'utf8')).replace('<head>', '<head><script>' + bridge + '</script>');
+      const marker = Array.from(new TextEncoder().encode('SB encrypted note: create passphrase\n'));
+      const html = `<!doctype html><html><head><title>Encrypted note development harness</title><style>html,body,iframe{width:100%;height:100%;margin:0;border:0;display:block}</style></head><body><iframe title="Encrypted note"></iframe><script>
+const frame=document.querySelector('iframe');
+const host=window.__encryptedHost={original:${JSON.stringify(marker)},saved:null,path:'Private.sben'};
+host.load=(bytes=host.original)=>frame.contentWindow.postMessage({type:'file-open',data:{data:new Uint8Array(bytes),meta:{name:host.path,perm:'rw',contentType:'application/octet-stream'}}},'*');
+host.send=(type,data)=>frame.contentWindow.postMessage({type,data},'*');
+window.addEventListener('message',event=>{
+  if(event.source!==frame.contentWindow)return;
+  const {type,data}=event.data;
+  if(type==='file-changed') { host.send('request-save'); return; }
+  if(type==='file-saved') host.saved=Array.from(data.data);
+});
+frame.onload=()=>host.load();
+frame.srcdoc=${JSON.stringify(editor).replace(/<\/script/gi, '<\\/script')};
+</script></body></html>`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); return;
+    } catch (error) { res.writeHead(500).end('Run npm run build first.'); console.error(error); return; }
+  }
   if (req.url !== '/') { res.writeHead(404).end(); return; }
   try {
     const editor = (await readFile('dist/spreadsheet.html', 'utf8')).replace('<head>', '<head><script>' + bridge + '</script>');

@@ -1,0 +1,13 @@
+name: encrypted-note
+functions:
+  encryptedNoteEditor:
+    path: ./encrypted-note.ts:encryptedNoteEditor
+    editor: [sben]
+  newEncryptedNote:
+    path: ./encrypted-note.ts:newEncryptedNote
+    command:
+      name: "Encrypted Note: New"
+  openEncryptedNote:
+    path: ./encrypted-note.ts:openEncryptedNote
+    command:
+      name: "Encrypted Note: Open"
