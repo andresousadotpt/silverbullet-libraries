@@ -84,21 +84,18 @@ npm run test:browser
 
 Model tests exercise serialization and reopening for the supported formats, formula caches, cross-sheet calculations, literal strings, Unicode, undo/redo, paste and read-only cell protections. Browser tests exercise the compiled UI and SilverBullet bridge messages. These tests are not a substitute for a final test in your own SilverBullet installation.
 
-## Prepare a release
+## Releases
 
-```sh
-npm run package
-```
+Releases are automated by the `Release` GitHub Actions workflow. Every push to `main` runs the full validation suite (`npm ci`, build, type check, model tests, browser tests); if it passes, [semantic-release](https://semantic-release.gitbook.io/) derives the next version from [Conventional Commits](https://www.conventionalcommits.org/) since the last tag:
 
-This creates `dist/release/Spreadsheet.md`, `spreadsheet.plug.js`, `REPO.md`, and third-party notices. The generated library page contains the package version and a bundle hash so SilverBullet detects binary-only updates. All generated outputs are ignored by Git.
+- `fix: …` → patch release, `feat: …` → minor release, `BREAKING CHANGE:` (or `!`) → major release
+- Other types (`chore:`, `docs:`, `ci:`, `test:`, …) do not trigger a release
 
-After reviewing changes, pushing the source, and choosing a version, a maintainer can publish those files as assets of a GitHub release. For example, from this repository:
+semantic-release bumps `package.json`/`package-lock.json`, rebuilds and repackages so the generated library page carries the new version and bundle hash, tags `vX.Y.Z`, publishes the GitHub release with the `dist/release/` assets, and commits the version bump back to `main` with `[skip ci]`. The `ghr:` install URI always serves the latest release.
 
-```sh
-gh release create v0.1.0 dist/release/* --title 'v0.1.0' --generate-notes
-```
+Local scripts never publish anything. To preview what a push would release, run `npx semantic-release --no-ci --dry-run`. Manual fallback: `npm run package` creates `dist/release/` (library page, `spreadsheet.plug.js`, `REPO.md`, third-party notices) for a maintainer to attach to a GitHub release by hand.
 
-The `ghr:` URI fetches assets from the latest release. Publishing is an explicit maintainer action; the build and package scripts never push or publish anything. The original code is available under the MIT license in `LICENSE`. Bundled dependencies retain the licenses reproduced in `THIRD_PARTY_NOTICES.md`.
+The original code is available under the MIT license in `LICENSE`. Bundled dependencies retain the licenses reproduced in `THIRD_PARTY_NOTICES.md`.
 
 ## Add another plug
 

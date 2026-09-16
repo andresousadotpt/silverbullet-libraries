@@ -1,0 +1,40 @@
+name: Release
+
+# Every push to main is fully validated. semantic-release then derives the
+# version from conventional commits (fix: -> patch, feat: -> minor,
+# BREAKING CHANGE: -> major), tags it, publishes the GitHub release with the
+# packaged library assets, and commits the version bump back with [skip ci].
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full history and tags
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Validate
+        run: npm run build && npm run check && npm test && npm run test:browser
+
+      - name: Release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

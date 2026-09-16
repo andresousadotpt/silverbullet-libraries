@@ -34,3 +34,7 @@ Run `npm ci`, `npm run build`, `npm run check`, `npm test`, and `npm run test:br
 Test data edits and save/reopen round trips, formulas, multiple sheets, undo/redo, read-only operation, backup failures, and file switching. A build alone does not validate data preservation.
 
 Update README instructions and limitations when behavior changes. Do not claim full Excel fidelity, server persistence verification, or live-space validation unless actually verified.
+
+## Releases
+
+Pushes to `main` trigger the `Release` workflow: full validation, then semantic-release publishes a GitHub release with the `dist/release/` assets and commits the version bump back with `[skip ci]`. Versions come from Conventional Commits (`fix:` patch, `feat:` minor, `BREAKING CHANGE:` major; other types release nothing), so write commit messages in that format. Local build/package scripts never publish.
