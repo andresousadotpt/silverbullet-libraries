@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+// Release assets are generated output. Start fresh so a renamed or removed
+// library page cannot be carried into a later package.
+await rm('dist/release', { recursive: true, force: true });
 await mkdir('dist/release', { recursive: true });
 for (const name of await readdir('libraries')) {
   if (!name.endsWith('.md')) continue;

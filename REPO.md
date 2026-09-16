@@ -9,7 +9,7 @@ Independently installable extensions from [silverbullet-plugs](https://github.co
 name: Directory Tree
 description: Browse and open your SilverBullet space through a responsive file and folder tree.
 website: https://github.com/andresousadotpt/silverbullet-plugs
-uri: ghr:andresousadotpt/silverbullet-plugs/Directory%20Tree.md
+uri: ghr:andresousadotpt/silverbullet-plugs/DirectoryTree.md
 ```
 
 ```#meta/library/remote
