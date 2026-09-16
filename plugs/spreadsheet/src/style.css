@@ -1,21 +1,22 @@
 :root { color-scheme:light; --bg:#fff; --surface:#f6f8f7; --text:#172b27; --muted:#61716c; --line:#dfe6e3; --accent:#167657; --notice:#fff8e8; --notice-text:#735220; font:13px/1.45 system-ui,sans-serif; }
 html[data-theme="dark"] { --bg:#17201e; --surface:#1e2a26; --text:#e3ede7; --muted:#9cafa5; --line:#34463d; --accent:#74c6a3; --notice:#342e1b; --notice-text:#e1c58c; }
 html,body { margin:0; height:100%; overflow:hidden; } body { display:flex; flex-direction:column; background:var(--bg); color:var(--text); }
-body>header,body>.formula-bar,body>.bottom,body>#notice { box-sizing:border-box; flex-shrink:0; }
-header button,.formula-bar button,.bottom button { font:inherit; border:1px solid var(--line); border-radius:5px; background:var(--bg); color:var(--text); padding:6px 11px; cursor:pointer; white-space:nowrap; }
-header button:hover:not(:disabled),.formula-bar button:hover:not(:disabled),.bottom button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
-header button:disabled,.formula-bar button:disabled,.bottom button:disabled { opacity:.4; cursor:default; }
+body>header,body>.bottom,body>#notice { box-sizing:border-box; flex-shrink:0; }
+header button,.bottom button { font:inherit; border:1px solid var(--line); border-radius:5px; background:var(--bg); color:var(--text); padding:6px 11px; cursor:pointer; white-space:nowrap; }
+header button:hover:not(:disabled),.bottom button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+header button:disabled,.bottom button:disabled { opacity:.4; cursor:default; }
 button:focus-visible,input:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
 header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; gap:16px; border-bottom:1px solid var(--line); }
 .brand { display:flex; align-items:center; gap:12px; min-width:0; }.brand>div { min-width:0; }.mark { font-size:30px; color:var(--accent); }
 h1 { margin:0; font-size:16px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } header p { margin:2px 0 0; font-size:12px; color:var(--muted); }
 .actions { display:flex; gap:6px; } #enable { background:var(--accent); color:var(--bg); border-color:var(--accent); }
 #notice { padding:9px 20px; background:var(--notice); color:var(--notice-text); font-size:12px; border-bottom:1px solid var(--line); } #notice.error { color:#c74836; }
-.formula-bar { display:flex; align-items:center; border-bottom:1px solid var(--line); min-height:42px; padding-right:8px; gap:8px; }
-.formula-bar input { font:13px ui-monospace,monospace; border:0; padding:9px 12px; background:var(--bg); color:var(--text); min-width:0; }
-#address { width:76px; text-align:center; border-right:1px solid var(--line); } #formula { flex:1; }.fx { color:var(--muted); font:italic 18px Georgia,serif; }
 #viewport { flex:1; min-height:0; position:relative; overflow:hidden; background:white; color:#222; }
 #viewport>.fortune-container { width:100%; height:100%; }
+/* These mutate workbook structure, which the persistence adapter intentionally
+   does not serialize. Cell editing and native formula reference selection stay
+   available in FortuneSheet. */
+.fortune-sheettab-button[aria-label="New sheet"],#luckysheet-bottom-controll-row { display:none !important; }
 .bottom { display:flex; align-items:center; gap:12px; padding:6px 12px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
 #value { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50%; } #status { margin-left:auto; text-align:right; }
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }

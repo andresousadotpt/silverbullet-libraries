@@ -51,7 +51,7 @@ export function displaySheets(sheets: Sheet[]): Sheet[] {
 
 // Apply values/formulas from a FortuneSheet snapshot, retaining all untouched
 // SheetJS cell metadata. Display caches and selection/layout changes are ignored.
-export function applyFortuneSheets(model: SpreadsheetModel, sheets: Sheet[]) {
+export function applyFortuneSheets(model: SpreadsheetModel, sheets: Sheet[], changedCells?: Map<string, Set<string>>) {
   if (sheets.length !== model.sheetNames.length || sheets.some((sheet, i) => sheet.name !== model.sheetNames[i])) {
     throw new Error('Use the editor sheet command to change workbook structure.');
   }
@@ -64,7 +64,11 @@ export function applyFortuneSheets(model: SpreadsheetModel, sheets: Sheet[]) {
       sheet.celldata?.forEach(({ r, c, v }) => { if (v) cells.set(utils.encode_cell({ r, c }), v); });
     }
     const original = model.sheet(sheet.name);
-    const addresses = new Set([...Object.keys(original).filter(a => !a.startsWith('!')), ...cells.keys()]);
+    // FortuneSheet's complete data snapshot may omit formulas in cells that
+    // were not edited. Its operation stream identifies the cells that changed;
+    // when available, use that precise set so dependent formulas are retained.
+    const changed = changedCells?.get(String(sheet.id));
+    const addresses = changed ?? new Set([...Object.keys(original).filter(a => !a.startsWith('!')), ...cells.keys()]);
     for (const address of addresses) {
       const source = cells.get(address), previous = original[address];
       // Empty styled SheetJS stubs are not deletions in an unchanged snapshot.
@@ -77,7 +81,16 @@ export function applyFortuneSheets(model: SpreadsheetModel, sheets: Sheet[]) {
         } else if (f) {
           cell = { t: 'n', f };
         } else {
-          cell = { t: source.ct?.t === 's' ? 's' : typeof source.v === 'number' ? 'n' : typeof source.v === 'boolean' ? 'b' : 's', v: source.v };
+          // FortuneSheet's editable content is text even when the cell's
+          // declared type is numeric or boolean. Restore that type before the
+          // SheetJS model serializes the native edit.
+          const type = source.ct?.t;
+          const nativeValue = type === 'n' && typeof source.v === 'string' && source.v.trim() !== '' && Number.isFinite(Number(source.v))
+            ? Number(source.v)
+            : type === 'b' && typeof source.v === 'string'
+              ? source.v.toLowerCase() === 'true'
+              : source.v;
+          cell = { t: type === 's' ? 's' : type === 'n' ? 'n' : type === 'b' ? 'b' : typeof nativeValue === 'number' ? 'n' : typeof nativeValue === 'boolean' ? 'b' : 's', v: nativeValue };
           if (source.ct?.t === 'e') cell.t = 'e';
         }
       }

@@ -1,6 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 const ui = (page: Page) => page.frameLocator('iframe');
+async function select(page: Page, address: string) {
+  const frame = ui(page);
+  const { r, c } = XLSX.utils.decode_cell(address);
+  // FortuneSheet's cell area starts below the column header; its default cells
+  // are 73 × 20 px. The test workbook stays within this initial viewport.
+  await frame.locator('.fortune-cell-area').click({ position: { x: c * 73 + 36, y: r * 20 + 10 } });
+}
 async function saved(page: Page) {
   await expect.poll(() => page.evaluate(() => (window as any).__host.saved)).not.toBeNull();
   const bytes = await page.evaluate(() => (window as any).__host.saved as number[]);
@@ -8,16 +15,18 @@ async function saved(page: Page) {
 }
 async function edit(page: Page, address: string, value: string) {
   const frame = ui(page);
-  await frame.getByLabel('Go to cell').fill(address);
-  await frame.getByLabel('Go to cell').press('Enter');
-  await frame.getByLabel('Cell value or formula').fill(value);
-  await frame.getByRole('button', { name: 'Apply', exact: true }).click();
+  await select(page, address);
+  const input = frame.locator('.fortune-fx-input');
+  await input.click();
+  await input.press('Meta+A');
+  await input.press('Backspace');
+  await input.pressSequentially(value);
+  await input.press('Enter');
 }
 
 async function display(page: Page, address: string, expected: string) {
   const frame = ui(page);
-  await frame.getByLabel('Go to cell').fill(address);
-  await frame.getByLabel('Go to cell').press('Enter');
+  await select(page, address);
   await expect(frame.getByLabel('Selected cell display')).toHaveText(expected);
 }
 
@@ -28,11 +37,11 @@ test('view, edit, calculate, paste, undo and save with an exact original backup'
   const frame = ui(page);
   await expect(frame.locator('#filename')).toHaveText('Example budget.xlsx');
   await display(page, 'D5', '14');
-  await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
   await page.evaluate(() => (window as any).__host.send('request-save'));
   await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).__host.saved) === JSON.stringify((window as any).__host.original))).toBe(true);
   await frame.getByRole('button', { name: 'Enable editing' }).click();
-  await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'true');
   const backup = await page.evaluate(() => {
     const host = (window as any).__host;
     return { name: host.writes[0].name, exact: JSON.stringify(host.writes[0].bytes) === JSON.stringify(host.original) };
@@ -47,10 +56,9 @@ test('view, edit, calculate, paste, undo and save with an exact original backup'
   await frame.getByRole('button', { name: 'Redo', exact: true }).click();
   await display(page, 'B2', '10');
   await display(page, 'A7', '');
-  await frame.locator('#viewport').evaluate(el => {
-    const clipboardData = new DataTransfer(); clipboardData.setData('text/plain', 'One\t2\nTwo\t3');
-    el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData }));
-  });
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4179' });
+  await page.evaluate(() => navigator.clipboard.writeText('One\t2\nTwo\t3'));
+  await frame.locator('.fortune-cell-area').press('Meta+V');
   await display(page, 'A8', 'Two');
   await frame.locator('.luckysheet-sheets-item-name').filter({ hasText: /^Notes$/ }).click();
   await display(page, 'A2', 'Synthetic example workbook');
@@ -60,13 +68,13 @@ test('view, edit, calculate, paste, undo and save with an exact original backup'
 test('reopening a file and enabling editing again reuses the single original backup', async ({ page }) => {
   await page.goto('/'); const frame = ui(page);
   await frame.getByRole('button', { name: 'Enable editing' }).click();
-  await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'true');
   expect(await page.evaluate(() => (window as any).__host.writes.map((w: { name: string }) => w.name)))
     .toEqual(['Example budget.original.xlsx']);
   await page.evaluate(() => (window as any).__host.load());
-  await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
   await frame.getByRole('button', { name: 'Enable editing' }).click();
-  await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'true');
   expect(await page.evaluate(() => (window as any).__host.writes)).toHaveLength(1);
   await expect(frame.locator('#notice')).toContainText('Example budget.original.xlsx');
 });
@@ -83,34 +91,36 @@ test('read-only modes and failed backups cannot enable editing', async ({ page }
   await page.evaluate(() => { const host = (window as any).__host; host.failBackup = true; host.load(); });
   await frame.getByRole('button', { name: 'Enable editing' }).click();
   await expect(frame.locator('#notice')).toHaveText('Backup write failed');
-  await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
   expect(await page.evaluate(() => (window as any).__host.writes)).toEqual([]);
 });
 
 test('pending formula input is committed on save; file switching resets edit permissions', async ({ page }) => {
   await page.goto('/'); const frame = ui(page);
   await frame.getByRole('button', { name: 'Enable editing' }).click();
-  await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
-  await frame.getByLabel('Cell value or formula').fill('Edited heading');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'true');
+  await select(page, 'A1');
+  await frame.locator('.fortune-fx-input').click();
+  await frame.locator('.fortune-fx-input').press('Meta+A');
+  await frame.locator('.fortune-fx-input').press('Backspace');
+  await frame.locator('.fortune-fx-input').pressSequentially('Edited heading');
+  await frame.locator('.fortune-fx-input').press('Enter');
   await page.evaluate(() => (window as any).__host.send('request-save'));
   await expect.poll(async () => (await saved(page)).Sheets.Budget.A1.v).toBe('Edited heading');
   await page.evaluate(() => (window as any).__host.load('Next.xlsx'));
   await expect(frame.locator('#filename')).toHaveText('Next.xlsx');
-  await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
   await display(page, 'A1', 'Item');
 });
 
-test('cell text cannot become executable HTML; sheets can be added and reopened', async ({ page }) => {
+test('cell text cannot become executable HTML and native formulas recalculate', async ({ page }) => {
   await page.goto('/'); const frame = ui(page);
   await frame.getByRole('button', { name: 'Enable editing' }).click();
   await edit(page, 'A1', '<img src=x onerror="alert(1)">');
   expect(await frame.locator('#viewport img').count()).toBe(0);
-  page.once('dialog', dialog => dialog.accept('Extra'));
-  await frame.getByRole('button', { name: '+ Sheet', exact: true }).click();
-  await expect(frame.locator('.luckysheet-sheets-item-name').filter({ hasText: /^Extra$/ })).toBeVisible();
   await edit(page, 'C3', '=1+2');
   await display(page, 'C3', '3');
-  await expect.poll(async () => (await saved(page)).Sheets.Extra?.C3?.v).toBe(3);
+  await expect.poll(async () => (await saved(page)).Sheets.Budget.C3?.v).toBe(3);
   await page.screenshot({ path: 'test-results/editor-light.png' });
   await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({type:'set-theme',internal:true,data:{theme:'dark'}}, '*'));
   await page.screenshot({ path: 'test-results/editor-dark.png' });
@@ -135,7 +145,7 @@ test('compiled plug loads as a worker and provides its editor manifest and HTML'
     };
   }));
   expect(result.extensions).toEqual(['xlsx', 'xls', 'ods', 'csv', 'tsv']);
-  expect(result.html).toContain('Cell value or formula');
+  expect(result.html).toContain('Spreadsheet grid');
   const externalScripts = await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelectorAll('script[src]').length, result.html);
   expect(externalScripts).toBe(0);
 });
@@ -149,7 +159,7 @@ test('CSV editing saves UTF-8 text with the original delimiter', async ({ page }
   await edit(page, 'A2', 'Olá again');
   await expect.poll(async () => page.evaluate(() => new TextDecoder().decode(new Uint8Array((window as any).__host.saved ?? []))))
     .toContain('Olá again,0012');
-  await expect(frame.getByRole('button', { name: '+ Sheet', exact: true })).toBeDisabled();
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'true');
 });
 
 test('legacy XLS conversion creates a separate XLSX workbook', async ({ page }) => {
@@ -161,7 +171,7 @@ test('legacy XLS conversion creates a separate XLSX workbook', async ({ page }) 
   await frame.getByRole('button', { name: 'Convert to XLSX' }).click();
   await expect(frame.locator('#filename')).toHaveText('Legacy.converted.xlsx');
   await display(page, 'A2', '7');
-  await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
   const writes = await page.evaluate(() => (window as any).__host.writes as {name: string}[]);
   expect(writes).toHaveLength(1);
   expect(writes[0].name).toMatch(/\.xlsx$/);
@@ -220,32 +230,25 @@ test('imported bracketed references display and recalculate in the compiled edit
   expect((await saved(page)).Sheets.Example.C1.f).toBe('A1+[.$B$1]');
 });
 
-test('canvas selection, keyboard edits, range clear and reopening preserve data', async ({ page }) => {
+test('native formula editor inserts cell references and reopening preserves data', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/'); const frame = ui(page);
   await expect(frame.locator('canvas').first()).toBeVisible();
   await frame.locator('#enable').click();
-  // Canvas cell geometry: 46px row header, 73px columns, 20px header/rows.
-  await frame.locator('#viewport').click({ position: { x: 145, y: 50 } });
-  await expect(frame.locator('#address')).toHaveValue('B2');
-  await frame.locator('#viewport').press('F2');
-  await expect(frame.locator('#formula')).toBeFocused();
-  await frame.locator('#formula').fill('12');
-  await frame.locator('#formula').press('Enter');
-  await expect(frame.locator('#address')).toHaveValue('B3');
-  await expect.poll(async () => (await saved(page)).Sheets.Budget.B2.v).toBe(12);
-  await display(page, 'B2', '12');
-  await frame.locator('#viewport').press('Shift+ArrowRight');
-  await frame.locator('#viewport').press('Delete');
-  await expect.poll(async () => (await saved(page)).Sheets.Budget.B2).toBeUndefined();
-  expect((await saved(page)).Sheets.Budget.C2).toBeUndefined();
-  await frame.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect.poll(async () => (await saved(page)).Sheets.Budget.B2.v).toBe(12);
+  await select(page, 'B2');
+  const area = frame.locator('.fortune-cell-area');
+  const input = frame.locator('.fortune-fx-input');
+  await area.press('=');
+  await select(page, 'C2');
+  await expect(input).toHaveText('=C2');
+  await area.press('Enter');
+  await expect.poll(async () => (await saved(page)).Sheets.Budget.B2.f).toBe('C2');
+  await display(page, 'B2', '3');
   await page.evaluate(() => { const host = (window as any).__host; host.load('Reopened.xlsx', host.saved); });
-  await expect(frame.locator('#formula')).toHaveAttribute('readonly', '');
-  await display(page, 'B2', '12');
-  await display(page, 'D5', '44');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
+  await display(page, 'B2', '3');
+  await display(page, 'D5', '17');
   expect(errors).toEqual([]);
 });
 
@@ -272,7 +275,7 @@ test('forced read-only prevents keyboard edits and preview emits no change event
   await frame.locator('#viewport').press('Delete');
   await frame.locator('#viewport').press('a');
   await frame.locator('.luckysheet-sheets-item-name').filter({ hasText: /^Notes$/ }).click();
-  await expect(frame.locator('#formula')).toHaveValue('Notes');
+  await expect(frame.getByLabel('Selected cell display')).toHaveText('Notes');
   expect(await page.evaluate(() => (window as any).__host.messages.filter((m: string) => m === 'file-changed'))).toEqual([]);
 });
 
@@ -284,7 +287,7 @@ test('a backup completing after a file switch never unlocks the next file', asyn
   await page.evaluate(() => { const host = (window as any).__host; host.load('Next.xlsx'); host.releaseBackup(); });
   await expect(frame.locator('#filename')).toHaveText('Next.xlsx');
   await expect(frame.locator('#enable')).toHaveText('Enable editing');
-  await expect(frame.locator('#formula')).toHaveAttribute('readonly', '');
+  await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'false');
   await page.evaluate(() => (window as any).__host.send('request-save'));
   await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).__host.saved) === JSON.stringify((window as any).__host.original))).toBe(true);
   expect(await page.evaluate(() => (window as any).__host.writes.map((w: { name: string }) => w.name))).toEqual(['Example budget.original.xlsx']);

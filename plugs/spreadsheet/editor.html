@@ -7,9 +7,8 @@
     <div class="actions"><button id="enable" disabled>Enable editing</button><button id="editor-undo" disabled title="Undo (Ctrl/Cmd-Z)">Undo</button><button id="editor-redo" disabled title="Redo (Ctrl/Cmd-Shift-Z)">Redo</button><button id="save" disabled>Save</button><button id="download" disabled>Download</button></div>
   </header>
   <div id="notice" role="status">Loading spreadsheet editor…</div>
-  <div class="formula-bar"><label class="sr-only" for="address">Go to cell</label><input id="address" value="A1" aria-label="Go to cell" spellcheck="false"><span class="fx" aria-hidden="true">fx</span><label class="sr-only" for="formula">Cell value or formula</label><input id="formula" placeholder="Select a cell to inspect its value" aria-label="Cell value or formula" readonly spellcheck="false"><button id="apply" disabled>Apply</button></div>
   <main id="viewport" tabindex="0" aria-label="Spreadsheet grid"></main>
-  <div class="bottom"><button id="add-sheet" disabled>+ Sheet</button><output id="value" aria-label="Selected cell display"></output><span id="status" role="status" aria-live="polite">Ready</span></div>
+  <div class="bottom"><output id="value" aria-label="Selected cell display"></output><span id="status" role="status" aria-live="polite">Ready</span></div>
   <!-- SCRIPT -->
 </body>
 </html>
