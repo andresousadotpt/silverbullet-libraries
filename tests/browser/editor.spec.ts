@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 const ui = (page: Page) => page.frameLocator('iframe');
+// Playwright runs the browser tests on macOS locally and Linux in CI.
+const primaryModifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 async function select(page: Page, address: string) {
   const frame = ui(page);
   const { r, c } = XLSX.utils.decode_cell(address);
@@ -18,7 +20,7 @@ async function edit(page: Page, address: string, value: string) {
   await select(page, address);
   const input = frame.locator('.fortune-fx-input');
   await input.click();
-  await input.press('Meta+A');
+  await input.press(`${primaryModifier}+A`);
   await input.press('Backspace');
   await input.pressSequentially(value);
   await input.press('Enter');
@@ -58,7 +60,7 @@ test('view, edit, calculate, paste, undo and save with an exact original backup'
   await display(page, 'A7', '');
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4179' });
   await page.evaluate(() => navigator.clipboard.writeText('One\t2\nTwo\t3'));
-  await frame.locator('.fortune-cell-area').press('Meta+V');
+  await frame.locator('.fortune-cell-area').press(`${primaryModifier}+V`);
   await display(page, 'A8', 'Two');
   await frame.locator('.luckysheet-sheets-item-name').filter({ hasText: /^Notes$/ }).click();
   await display(page, 'A2', 'Synthetic example workbook');
@@ -101,7 +103,7 @@ test('pending formula input is committed on save; file switching resets edit per
   await expect(frame.locator('.fortune-fx-input')).toHaveAttribute('contenteditable', 'true');
   await select(page, 'A1');
   await frame.locator('.fortune-fx-input').click();
-  await frame.locator('.fortune-fx-input').press('Meta+A');
+  await frame.locator('.fortune-fx-input').press(`${primaryModifier}+A`);
   await frame.locator('.fortune-fx-input').press('Backspace');
   await frame.locator('.fortune-fx-input').pressSequentially('Edited heading');
   await frame.locator('.fortune-fx-input').press('Enter');
