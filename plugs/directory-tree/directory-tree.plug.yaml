@@ -1,0 +1,23 @@
+name: directory-tree
+functions:
+  show:
+    path: ./directory-tree.ts:showTreeIfVisible
+    events:
+      - editor:init
+      - editor:pageLoaded
+      - editor:pageSaved
+      - file:deleted
+  refresh:
+    path: ./directory-tree.ts:refreshTree
+  hide:
+    path: ./directory-tree.ts:hideTree
+  toggle:
+    path: ./directory-tree.ts:toggleTree
+    command:
+      name: "Directory Tree: Toggle"
+      key: Ctrl-Alt-b
+      mac: Cmd-Alt-b
+  reveal:
+    path: ./directory-tree.ts:showTree
+    command:
+      name: "Directory Tree: Reveal"

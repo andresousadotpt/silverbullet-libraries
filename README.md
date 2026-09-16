@@ -2,6 +2,20 @@
 
 A repository of independently installable [SilverBullet](https://silverbullet.md/) extensions. Each folder in `plugs/` owns one plug; each page in `libraries/` packages a plug as an installable library. `REPO.md` is the catalog used by SilverBullet's Libraries manager.
 
+## Directory Tree
+
+A file-and-folder tree for the current SilverBullet space. It opens by default in the left panel on desktop and the bottom panel on mobile. Select a file to open it, filter paths, expand folders, and refresh after external file changes. **Directory Tree: Toggle** hides or restores it; **Directory Tree: Reveal** opens it again.
+
+SilverBullet action buttons are configured by each space, rather than by plugs. Add this to your `CONFIG` page to place the toggle alongside Home, Open, and the Command Palette; the `sidebar` icon is available on desktop and mobile:
+
+````space-lua
+actionButton.define {
+  icon = "sidebar",
+  description = "Toggle directory tree",
+  command = "Directory Tree: Toggle",
+}
+````
+
 ## Spreadsheet
 
 A local spreadsheet editor for SilverBullet's document viewer, with a bundled FortuneSheet canvas grid. Workbooks stay in your space; the editor has no runtime CDN, telemetry, or external service dependency.
