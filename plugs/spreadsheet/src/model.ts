@@ -47,6 +47,7 @@ export class SpreadsheetModel {
   readonly original: Uint8Array;
   bytes: Uint8Array;
   revision = 0;
+  validateEdit?: () => void;
   private undoStack: XLSX.WorkBook[] = [];
   private redoStack: XLSX.WorkBook[] = [];
   private cache = new Map<string, Result>();
@@ -195,7 +196,7 @@ export class SpreadsheetModel {
   }
 
   private writableCell(name: string, row: number, col: number) {
-    if (row < 0 || col < 0 || row >= MAX_ROWS || col >= MAX_COLS) {
+    if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0 || row >= MAX_ROWS || col >= MAX_COLS) {
       throw new Error('Cell is outside spreadsheet limits.');
     }
     const sheet = this.sheet(name);
@@ -251,6 +252,28 @@ export class SpreadsheetModel {
     });
   }
 
+  setTypedCells(edits: { name: string; row: number; col: number; cell?: XLSX.CellObject }[]) {
+    if (edits.length > 10_000) throw new Error('Edit up to 10,000 cells at a time.');
+    for (const edit of edits) this.writableCell(edit.name, edit.row, edit.col);
+    this.change(() => {
+      for (const { name, row, col, cell } of edits) {
+        const sheet = this.sheet(name), address = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!cell) delete sheet[address];
+        else {
+          const next = { ...sheet[address], ...cell };
+          delete next.w; delete next.h; delete next.r;
+          if (!cell.f) delete next.f;
+          if (cell.f) delete next.v;
+          sheet[address] = next;
+        }
+        const extent = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+        extent.s.r = Math.min(extent.s.r, row); extent.s.c = Math.min(extent.s.c, col);
+        extent.e.r = Math.max(extent.e.r, row); extent.e.c = Math.max(extent.e.c, col);
+        sheet['!ref'] = XLSX.utils.encode_range(extent);
+      }
+    });
+  }
+
   addSheet(name: string) {
     if (this.textFormat) throw new Error('CSV and TSV support one sheet.');
     const trimmed = name.trim();
@@ -275,6 +298,9 @@ export class SpreadsheetModel {
         const position = XLSX.utils.decode_cell(address);
         const result = this.evaluate(name, position.r, position.c);
         delete cell.w;
+        // SheetJS's ODS writer expects A1 syntax and adds OpenFormula brackets.
+        // Feeding imported brackets back would double-wrap absolute references.
+        if (this.format === 'ods') cell.f = formulaForEvaluation(cell.f);
         if (result.error || result.value === null) { delete cell.v; cell.t = 'n'; }
         else {
           cell.v = result.value;
@@ -292,7 +318,7 @@ export class SpreadsheetModel {
     if (this.format === 'xls') throw new Error('Convert this legacy XLS workbook to XLSX before editing.');
     const before = structuredClone(this.workbook);
     try {
-      action(); this.resetEvaluation();
+      action(); this.validateEdit?.(); this.resetEvaluation();
       const bytes = this.serialize(); // A failed write must not replace the last valid bytes.
       this.bytes = bytes;
       this.undoStack.push(before);

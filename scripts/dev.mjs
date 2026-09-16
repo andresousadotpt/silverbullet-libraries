@@ -58,6 +58,7 @@ window.addEventListener('message',async event=>{
       case 'editor.getUiOption': result=host.forcedRO; break;
       case 'space.fileExists': result=host.writes.some(w=>w.name===data.args[0]); break;
       case 'space.writeDocument':
+        if(host.pauseBackup)await new Promise(resolve=>host.releaseBackup=resolve);
         if(host.failBackup)throw new Error('Backup write failed');
         host.writes.push({name:data.args[0],bytes:Array.from(data.args[1])}); result={}; break;
       case 'editor.prompt': result=window.prompt(data.args[0],data.args[1]); break;

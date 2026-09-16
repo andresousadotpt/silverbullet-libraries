@@ -4,13 +4,12 @@
 <body>
   <header>
     <div class="brand"><span class="mark" aria-hidden="true">▦</span><div><h1 id="filename">Spreadsheet</h1><p id="subtitle">Open a workbook from your space</p></div></div>
-    <div class="actions"><button id="enable" disabled>Enable editing</button><button id="undo" disabled title="Undo (Ctrl/Cmd-Z)">Undo</button><button id="redo" disabled title="Redo (Ctrl/Cmd-Shift-Z)">Redo</button><button id="save" disabled>Save</button><button id="download" disabled>Download</button></div>
+    <div class="actions"><button id="enable" disabled>Enable editing</button><button id="editor-undo" disabled title="Undo (Ctrl/Cmd-Z)">Undo</button><button id="editor-redo" disabled title="Redo (Ctrl/Cmd-Shift-Z)">Redo</button><button id="save" disabled>Save</button><button id="download" disabled>Download</button></div>
   </header>
   <div id="notice" role="status">Loading spreadsheet editor…</div>
   <div class="formula-bar"><label class="sr-only" for="address">Go to cell</label><input id="address" value="A1" aria-label="Go to cell" spellcheck="false"><span class="fx" aria-hidden="true">fx</span><label class="sr-only" for="formula">Cell value or formula</label><input id="formula" placeholder="Select a cell to inspect its value" aria-label="Cell value or formula" readonly spellcheck="false"><button id="apply" disabled>Apply</button></div>
-  <main id="viewport" tabindex="-1"><table id="grid" role="grid" aria-label="Spreadsheet cells"><thead></thead><tbody></tbody></table></main>
-  <footer><div id="sheets" role="tablist" aria-label="Sheets"></div><button id="add-sheet" disabled title="Add sheet">+ Sheet</button></footer>
-  <div class="bottom"><div class="paging"><button id="prev-rows" aria-label="Previous rows">↑ Rows</button><button id="next-rows" aria-label="Next rows">↓ Rows</button><button id="prev-cols" aria-label="Previous columns">← Columns</button><button id="next-cols" aria-label="Next columns">→ Columns</button><span id="range"></span></div><span id="status" role="status" aria-live="polite">Ready</span></div>
+  <main id="viewport" tabindex="0" aria-label="Spreadsheet grid"></main>
+  <div class="bottom"><button id="add-sheet" disabled>+ Sheet</button><output id="value" aria-label="Selected cell display"></output><span id="status" role="status" aria-live="polite">Ready</span></div>
   <!-- SCRIPT -->
 </body>
 </html>

@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { build } from 'esbuild';
+import { fortuneReadonlyFix } from './fortune-compat.mjs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
@@ -16,10 +17,11 @@ for (const entry of await readdir('plugs', { withFileTypes: true })) {
     const result = await build({
       entryPoints: [`${root}/src/app.ts`], bundle: true, write: false,
       format: 'iife', platform: 'browser', target: 'es2022', minify: true,
-      legalComments: 'inline',
+      legalComments: 'inline', outfile: 'editor.js', plugins: [fortuneReadonlyFix],
+      define: { 'process.env.NODE_ENV': '"production"' },
     });
-    const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-    const css = await readFile(`${root}/src/style.css`, 'utf8');
+    const js = result.outputFiles.find(file => file.path.endsWith('.js')).text.replace(/<\/script/gi, '<\\/script');
+    const css = (result.outputFiles.find(file => file.path.endsWith('.css'))?.text ?? '') + '\n' + await readFile(`${root}/src/style.css`, 'utf8');
     const shell = await readFile(`${root}/editor.html`, 'utf8');
     const html = shell.replace('<!-- STYLE -->', () => `<style>${css}</style>`)
       .replace('<!-- SCRIPT -->', () => `<script>${js}</script>`);
