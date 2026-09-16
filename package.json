@@ -1,0 +1,33 @@
+{
+  "name": "silverbullet-personal-plugs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A collection of independently installable SilverBullet plugs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "dev": "node scripts/dev.mjs",
+    "package": "npm run build && node scripts/package.mjs"
+  },
+  "dependencies": {
+    "fast-formula-parser": "1.0.19",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "@silverbulletmd/silverbullet": "2.10.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "@silverbulletmd/silverbullet": {
+      "esbuild": "0.28.2"
+    }
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,9 @@
+name: spreadsheet
+functions:
+  spreadsheetEditor:
+    path: ./spreadsheet.ts:spreadsheetEditor
+    editor: [xlsx, xls, ods, csv, tsv]
+  newSpreadsheet:
+    path: ./spreadsheet.ts:newSpreadsheet
+    command:
+      name: "Spreadsheet: New"

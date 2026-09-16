@@ -1,0 +1,114 @@
+# SilverBullet Plugs
+
+A repository of independently installable [SilverBullet](https://silverbullet.md/) extensions. Each folder in `plugs/` owns one plug; each page in `libraries/` packages a plug as an installable library. `REPO.md` is the catalog used by SilverBullet's Libraries manager.
+
+## Spreadsheet
+
+A local spreadsheet editor for SilverBullet's document viewer. Workbooks stay in your space; the editor has no runtime CDN, telemetry, or external service dependency.
+
+- Open `.xlsx`, `.ods`, `.csv`, `.tsv`, and legacy `.xls` documents from the file picker.
+- Edit XLSX/ODS cells and formulas; edit UTF-8 CSV/TSV text values.
+- Browse sheets, add sheets, navigate by cell address, and select ranges with Shift-click.
+- Copy displayed values and paste a tabular range from another spreadsheet.
+- Undo/redo up to 30 workbook edits, download the current file, and save through SilverBullet's document autosave bridge.
+- Calculate supported formulas, including arithmetic, `SUM`, `AVERAGE`, `IF`, and cross-sheet references.
+- Preserve the original file exactly until editing is explicitly enabled. Enabling editing saves an original backup alongside the file before any changes are allowed.
+- View legacy XLS files and convert them to a separate XLSX copy for editing. The legacy file is never rewritten.
+
+### Install locally for testing
+
+Requires Node.js 22 or newer and a SilverBullet version supporting `.plug.js` document editors (developed against 2.10.0).
+
+```sh
+npm ci
+npm run build
+```
+
+Copy `dist/spreadsheet.plug.js` anywhere in your SilverBullet space, for example under `Library/andresousadotpt/`. Run **Plugs: Reload** in SilverBullet. Use **Navigate: Anything Picker** / **Navigate: Document Picker** to open a spreadsheet, or run **Spreadsheet: New** to create an XLSX workbook.
+
+The spreadsheet starts in preview mode. Click **Enable editing** to create a byte-for-byte backup and unlock edits. If the backup fails, the file remains in preview mode. Read-only files and spaces cannot enable editing. A new backup is made each time editing is enabled after reopening a file; you control when old backups are removed.
+
+Select a cell, then use the formula bar or double-click / F2 to edit. Press Enter, Apply, or move focus to commit. Escape cancels a pending edit. Arrow keys and Tab move between cells. Shift-click extends the selection. Delete clears a selection. Ctrl/Cmd-Z and Ctrl/Cmd-Shift-Z undo/redo committed changes when the grid is focused. Ctrl/Cmd-S or Save requests a save. SilverBullet controls final storage and sync status; “Changes sent to SilverBullet” is not a server-persistence acknowledgement.
+
+For XLS files, **Convert to XLSX** creates and opens a separately named copy. Review it before enabling editing.
+
+### Install through Libraries after publication
+
+The source repository and a SilverBullet repository serve different purposes:
+
+- **GitHub repository:** source code, tests, build scripts and library definitions.
+- **SilverBullet repository (`REPO.md`):** a catalog pointing to installable libraries.
+- **Library (`Spreadsheet.md`):** a page whose `files` list installs the compiled `spreadsheet.plug.js` beside it.
+
+After the source has been pushed and the first release assets published:
+
+1. Open the Libraries manager and add this repository URI (or use **Library: Add Repository**):
+   ```text
+   https://github.com/andresousadotpt/silverbullet-plugs/blob/main/REPO.md
+   ```
+2. Install **Spreadsheet** from the repository's list.
+3. If necessary, run **Plugs: Reload**.
+
+The direct library install URI is:
+
+```text
+ghr:andresousadotpt/silverbullet-plugs/Spreadsheet.md
+```
+
+These remote installation URLs become usable only after publication. A Git clone URL ending in `.git` is not a SilverBullet catalog URI.
+
+### Current limits
+
+This is a lightweight spreadsheet data editor, not a replacement for Excel or LibreOffice.
+
+- Advanced formatting, charts, drawings, pivot tables, macros, external connections, validation rules, and other complex features are not guaranteed to survive conversion or saving. The backup retains the untouched original. Do not use the edited copy as the sole copy of a complex workbook.
+- Formula support comes from `fast-formula-parser`, not Excel. Named ranges, external references, structured table references, dynamic arrays and other unsupported formulas may show errors. Formula text is retained; stale cached results are removed on save. Network formulas are disabled. Excel/LibreOffice may need to recalculate the file when opened there.
+- CSV/TSV are UTF-8, single-sheet text formats. CSV uses commas; TSV uses tabs. Input is kept as text, including leading zeros. Formula-like text is not evaluated by this editor. Opening an exported CSV in another spreadsheet app follows that app's own interpretation rules.
+- Array formula cells and non-anchor cells in merged ranges cannot be edited. Merged ranges are shown as ordinary grid cells. Protected sheets reject edits.
+- No row/column insertion, deletion, sorting, sheet renaming/deletion, rich formatting toolbar or formula-reference adjustment on paste. Copy exports displayed values, not Excel's rich clipboard format. Cells at new addresses can be populated directly.
+- Files up to 20 MB, 10,000 cells per paste/copy/clear, and a 60-row by 16-column rendering window. Use the address field or paging controls to reach other cells. Formula depth/range/work budgets are bounded; expensive formulas can show `#LIMIT!`.
+- No concurrent-edit merge or conflict resolution beyond SilverBullet's normal document behavior. Avoid editing the same workbook in multiple clients simultaneously.
+
+## Develop and test
+
+```sh
+npm ci
+npm run build
+npm run check
+npm test
+npx playwright install chromium
+npm run test:browser
+```
+
+`npm run dev` serves a synthetic workbook and a document-editor protocol harness at `http://127.0.0.1:4179`. It does not connect to a real space. The build is self-contained and can be developed without a neighboring SilverBullet source checkout.
+
+Model tests exercise serialization and reopening for the supported formats, formula caches, cross-sheet calculations, literal strings, Unicode, undo/redo, paste and read-only cell protections. Browser tests exercise the compiled UI and SilverBullet bridge messages. These tests are not a substitute for a final test in your own SilverBullet installation.
+
+## Prepare a release
+
+```sh
+npm run package
+```
+
+This creates `dist/release/Spreadsheet.md`, `spreadsheet.plug.js`, `REPO.md`, and third-party notices. The generated library page contains the package version and a bundle hash so SilverBullet detects binary-only updates. All generated outputs are ignored by Git.
+
+After reviewing changes, pushing the source, and choosing a version, a maintainer can publish those files as assets of a GitHub release. For example, from this repository:
+
+```sh
+gh release create v0.1.0 dist/release/* --title 'v0.1.0' --generate-notes
+```
+
+The `ghr:` URI fetches assets from the latest release. Publishing is an explicit maintainer action; the build and package scripts never push or publish anything. The original code is available under the MIT license in `LICENSE`. Bundled dependencies retain the licenses reproduced in `THIRD_PARTY_NOTICES.md`.
+
+## Add another plug
+
+Create `plugs/<name>/<name>.plug.yaml` and its TypeScript entry points. The build discovers every matching plug directory and produces a separate `dist/<name>.plug.js`. A document editor can additionally provide `editor.html`, `src/app.ts`, and `src/style.css`; these are bundled into a generated HTML module.
+
+Add a `libraries/<Library Name>.md` page with `name`, `tags: meta/library`, and the plug in its `files` list. Add a `#meta/library/remote` entry to `REPO.md` pointing to the page's release asset. Build and package to distribute the new library independently alongside the existing ones.
+
+## Dependency references
+
+- [SheetJS installation](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/), [writing behavior](https://docs.sheetjs.com/docs/api/write-options/), and [format support](https://docs.sheetjs.com/docs/miscellany/formats/).
+- [fast-formula-parser API and supported formulas](https://github.com/LesterLyu/fast-formula-parser).
+
+See `AGENTS.md` for contributor guidance and public-repository hygiene.

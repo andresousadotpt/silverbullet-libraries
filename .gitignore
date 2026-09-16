@@ -1,0 +1,36 @@
+node_modules/
+dist/
+plugs/*/generated/
+playwright-report/
+test-results/
+.DS_Store
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
+
+# Local spaces, profiles, and workbooks (fixtures are generated in tests)
+space/
+spaces/
+.local/
+.browser-profile/
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+*.ods
+*.csv
+*.tsv
+
+# Editor, coverage, and logs
+.idea/
+.vscode/
+coverage/
+*.log
+*.tsbuildinfo
