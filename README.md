@@ -4,7 +4,7 @@ A repository of independently installable [SilverBullet](https://silverbullet.md
 
 ## Directory Tree
 
-A file-and-folder tree for the current SilverBullet space. It opens by default in the left panel on desktop and the bottom panel on mobile. Select a file to open it, filter paths, expand folders, and refresh after external file changes. **Directory Tree: Toggle** hides or restores it; **Directory Tree: Reveal** opens it again.
+A file-and-folder tree for the current SilverBullet space. It opens by default in the left panel on desktop and the bottom panel on mobile. Select a file to open it, filter paths, expand folders, and refresh after external file changes. The −/+ controls resize the panel and remember its size on that client. **Directory Tree: Toggle** hides or restores it; **Directory Tree: Reveal** opens it again.
 
 Install it from the catalog or directly with `ghr:andresousadotpt/silverbullet-plugs/DirectoryTree.md`.
 

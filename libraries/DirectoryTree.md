@@ -6,7 +6,7 @@ files:
 ---
 # Directory Tree
 
-Browse every file in the current SilverBullet space through a collapsible folder tree. The tree opens automatically in the left panel on desktop and in a bottom panel on mobile. Select a file to open it; use the filter, refresh, and hide buttons in the panel as needed.
+Browse every file in the current SilverBullet space through a collapsible folder tree. The tree opens automatically in the left panel on desktop and in a bottom panel on mobile. Select a file to open it; use the filter, refresh, hide, and −/+ resize buttons in the panel as needed. The panel size is remembered on that client.
 
 Commands:
 
