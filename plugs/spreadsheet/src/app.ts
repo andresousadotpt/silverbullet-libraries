@@ -171,22 +171,31 @@ element('enable').onclick = async () => {
   const current = model, path = filename;
   try {
     if (current.format === 'xls') {
-      const target = path.replace(/\.xls$/i, '') + `.converted-${crypto.randomUUID()}.xlsx`;
-      if (await bridge.syscall('space.fileExists', target)) throw new Error('Target already exists. Try again.');
+      // Deterministic name: reopen and reuse the existing copy instead of
+      // creating duplicates or overwriting edits made in the converted copy.
+      const target = path.replace(/\.xls$/i, '') + '.converted.xlsx';
+      const exists = await bridge.syscall('space.fileExists', target);
       if (token !== generation) return;
-      await bridge.syscall('space.writeDocument', target, current.toXlsx());
-      if (token !== generation) return;
+      if (!exists) {
+        await bridge.syscall('space.writeDocument', target, current.toXlsx());
+        if (token !== generation) return;
+      }
       await bridge.syscall('editor.navigate', { path: target });
       if (token !== generation) return;
-      message(`Created ${target}. The original XLS file is unchanged. Open the XLSX copy to edit.`);
+      message(exists
+        ? `Opened the existing converted copy ${target}. The original XLS file is unchanged.`
+        : `Created ${target}. The original XLS file is unchanged. Open the XLSX copy to edit.`);
       return;
     }
+    // One deterministic backup per file. An existing backup is the pristine
+    // original: never overwrite it and never create additional copies.
     const extension = path.slice(path.lastIndexOf('.'));
-    const backup = path.slice(0, -extension.length) + `.original-${crypto.randomUUID()}` + extension;
-    if (await bridge.syscall('space.fileExists', backup)) throw new Error('Backup path already exists. Try again.');
-    if (token !== generation) return;
-    await bridge.syscall('space.writeDocument', backup, current.original);
-    if (token !== generation) return;
+    const backup = path.slice(0, -extension.length) + '.original' + extension;
+    if (!(await bridge.syscall('space.fileExists', backup))) {
+      if (token !== generation) return;
+      await bridge.syscall('space.writeDocument', backup, current.original);
+      if (token !== generation) return;
+    }
     editable = true;
     message(`Original backup: ${backup}. Edits save automatically. Advanced workbook formatting may not be preserved.`);
     element('subtitle').textContent = `${current.format.toUpperCase()} · Editing · ${current.textFormat ? 'Text values' : 'Values and formulas'}`;

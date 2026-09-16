@@ -26,8 +26,11 @@ test('view, edit, calculate, paste, undo and save with an exact original backup'
   await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).__host.saved) === JSON.stringify((window as any).__host.original))).toBe(true);
   await frame.getByRole('button', { name: 'Enable editing' }).click();
   await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
-  const backupMatches = await page.evaluate(() => JSON.stringify((window as any).__host.writes[0].bytes) === JSON.stringify((window as any).__host.original));
-  expect(backupMatches).toBe(true);
+  const backup = await page.evaluate(() => {
+    const host = (window as any).__host;
+    return { name: host.writes[0].name, exact: JSON.stringify(host.writes[0].bytes) === JSON.stringify(host.original) };
+  });
+  expect(backup).toEqual({ name: 'Example budget.original.xlsx', exact: true });
   await edit(page, 'B2', '10');
   await expect(frame.locator('td[data-row="4"][data-col="3"]')).toHaveText('38');
   await expect.poll(async () => (await saved(page)).Sheets.Budget.B2.v).toBe(10);
@@ -45,6 +48,20 @@ test('view, edit, calculate, paste, undo and save with an exact original backup'
   await frame.getByRole('tab', { name: 'Notes', exact: true }).click();
   await expect(frame.locator('td[data-row="1"][data-col="0"]')).toHaveText('Synthetic example workbook');
   expect(errors).toEqual([]);
+});
+
+test('reopening a file and enabling editing again reuses the single original backup', async ({ page }) => {
+  await page.goto('/'); const frame = ui(page);
+  await frame.getByRole('button', { name: 'Enable editing' }).click();
+  await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
+  expect(await page.evaluate(() => (window as any).__host.writes.map((w: { name: string }) => w.name)))
+    .toEqual(['Example budget.original.xlsx']);
+  await page.evaluate(() => (window as any).__host.load());
+  await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
+  await frame.getByRole('button', { name: 'Enable editing' }).click();
+  await expect(frame.getByLabel('Cell value or formula')).not.toHaveAttribute('readonly', '');
+  expect(await page.evaluate(() => (window as any).__host.writes)).toHaveLength(1);
+  await expect(frame.locator('#notice')).toContainText('Example budget.original.xlsx');
 });
 
 test('read-only modes and failed backups cannot enable editing', async ({ page }) => {
@@ -135,12 +152,17 @@ test('legacy XLS conversion creates a separate XLSX workbook', async ({ page }) 
   await page.goto('/'); const frame = ui(page);
   await page.evaluate(bytes => (window as any).__host.load('Legacy.xls', bytes), bytes);
   await frame.getByRole('button', { name: 'Convert to XLSX' }).click();
-  await expect(frame.getByRole('heading')).toHaveText(/Legacy\.converted-.*\.xlsx/);
+  await expect(frame.getByRole('heading')).toHaveText('Legacy.converted.xlsx');
   await expect(frame.locator('td[data-row="1"][data-col="0"]')).toHaveText('7');
   await expect(frame.getByLabel('Cell value or formula')).toHaveAttribute('readonly', '');
   const writes = await page.evaluate(() => (window as any).__host.writes as {name: string}[]);
   expect(writes).toHaveLength(1);
   expect(writes[0].name).toMatch(/\.xlsx$/);
+  // Converting again opens the existing copy instead of writing a duplicate.
+  await page.evaluate(bytes => (window as any).__host.load('Legacy.xls', bytes), bytes);
+  await frame.getByRole('button', { name: 'Convert to XLSX' }).click();
+  await expect(frame.getByRole('heading')).toHaveText('Legacy.converted.xlsx');
+  expect(await page.evaluate(() => (window as any).__host.writes)).toHaveLength(1);
 });
 
 test('Spreadsheet: New creates a valid workbook through the compiled worker', async ({ page }) => {
