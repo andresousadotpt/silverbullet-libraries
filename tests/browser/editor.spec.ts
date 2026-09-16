@@ -170,3 +170,23 @@ test('Spreadsheet: New creates a valid workbook through the compiled worker', as
   expect(result.path).toBe('Example.xlsx');
   expect(XLSX.read(new Uint8Array(result.bytes)).SheetNames).toEqual(['Sheet1']);
 });
+
+test('imported bracketed references display and recalculate in the compiled editor', async ({ page }) => {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([[10, 4]]);
+  sheet.C1 = { t: 'n', f: 'A1+[.$B$1]', v: 14 };
+  sheet.D1 = { t: 'n', f: 'SUM([.A1:.B1];[.C1])', v: 28 };
+  sheet['!ref'] = 'A1:D1';
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Example');
+  const bytes = Array.from(new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })));
+  await page.goto('/'); const frame = ui(page);
+  await page.evaluate(bytes => (window as any).__host.load('References.xlsx', bytes), bytes);
+  await expect(frame.locator('td[data-row="0"][data-col="2"]')).toHaveText('14');
+  await expect(frame.locator('td[data-row="0"][data-col="3"]')).toHaveText('28');
+  await frame.getByRole('button', { name: 'Enable editing' }).click();
+  await edit(page, 'B1', '6');
+  await expect(frame.locator('td[data-row="0"][data-col="2"]')).toHaveText('16');
+  await expect(frame.locator('td[data-row="0"][data-col="3"]')).toHaveText('32');
+  await expect.poll(async () => (await saved(page)).Sheets.Example.C1.v).toBe(16);
+  expect((await saved(page)).Sheets.Example.C1.f).toBe('A1+[.$B$1]');
+});

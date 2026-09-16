@@ -11,7 +11,7 @@ A local spreadsheet editor for SilverBullet's document viewer. Workbooks stay in
 - Browse sheets, add sheets, navigate by cell address, and select ranges with Shift-click.
 - Copy displayed values and paste a tabular range from another spreadsheet.
 - Undo/redo up to 30 workbook edits, download the current file, and save through SilverBullet's document autosave bridge.
-- Calculate supported formulas, including arithmetic, `SUM`, `AVERAGE`, `IF`, and cross-sheet references.
+- Calculate supported formulas, including arithmetic, `SUM`, `AVERAGE`, `IF`, and cross-sheet references. Common imported OpenFormula references such as `[.$A$1]` and `[.A1:.B3]` are recognized without rewriting stored formulas.
 - Preserve the original file exactly until editing is explicitly enabled. Enabling editing saves an original backup alongside the file before any changes are allowed.
 - View legacy XLS files and convert them to a separate XLSX copy for editing. The legacy file is never rewritten.
 

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import FormulaParser from 'fast-formula-parser';
+import { formulaForEvaluation } from './formulas.ts';
 
 export const MAX_ROWS = 1_048_576;
 export const MAX_COLS = 16_384;
@@ -173,7 +174,7 @@ export class SpreadsheetModel {
     this.evaluating.add(key);
     let result: Result;
     try {
-      const value = this.parser(depth).parse(cell.f, { sheet: name, row: row + 1, col: col + 1 });
+      const value = this.parser(depth).parse(formulaForEvaluation(cell.f), { sheet: name, row: row + 1, col: col + 1 });
       if (value instanceof Error || (typeof value === 'object' && value !== null)) {
         throw new Error(value instanceof Error ? value.toString() : '#UNSUPPORTED!');
       }
