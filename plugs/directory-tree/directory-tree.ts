@@ -23,7 +23,7 @@ export async function showTree() {
   if (panel && panel !== nextPanel) await syscall('editor.hidePanel', panel);
   panel = nextPanel;
   const model = { nodes: buildTree(files), currentPath: String(currentPath) };
-  await syscall('editor.showPanel', nextPanel, await panelSize(), await panelHtml(), panelScript(model));
+  await syscall('editor.showPanel', nextPanel, await panelSize(), await panelHtml(mobile), panelScript(model));
 }
 
 // The tree starts visible when the plug worker initializes. After a user hides
@@ -69,7 +69,7 @@ async function panelSize() {
   } catch { return configuredSize; }
 }
 
-async function panelHtml() {
+async function panelHtml(mobile: boolean) {
   // The public UI barrel in SilverBullet 2.10 references optional Preact
   // components that are not present in its npm package. This is the small,
   // documented panelStyles equivalent without importing that barrel.
@@ -91,8 +91,10 @@ async function panelHtml() {
     .directory-tree__file[aria-current="page"] { background: var(--highlight-color, Highlight); color: var(--root-color, HighlightText); font-weight: 650; }
     .directory-tree__empty { color: var(--subtle-color, GrayText); padding: 1rem; text-align: center; }
     .sr-only { block-size: 1px; clip: rect(0, 0, 0, 0); inline-size: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; }
-    @media (max-width: 600px) { .directory-tree__header { position: sticky; inset-block-start: 0; background: var(--root-background-color, Canvas); z-index: 1; } .directory-tree__file, .directory-tree__folder > summary { min-block-size: 2.35rem; display: flex; align-items: center; } }
-  </style><section class="directory-tree" aria-label="Directory tree">
+    .directory-tree--mobile .directory-tree__header { position: sticky; inset-block-start: 0; background: var(--root-background-color, Canvas); z-index: 1; }
+    .directory-tree--mobile .directory-tree__file { min-block-size: 2.35rem; display: flex; align-items: center; }
+    .directory-tree--mobile .directory-tree__folder > summary { min-block-size: 2.35rem; line-height: 2.35rem; }
+  </style><section class="directory-tree${mobile ? ' directory-tree--mobile' : ''}" aria-label="Directory tree">
     <header class="directory-tree__header"><strong class="directory-tree__title">Files</strong><label class="sr-only" for="directory-tree-search">Filter files</label><input id="directory-tree-search" class="sb-input directory-tree__search" type="search" placeholder="Filter files" autocomplete="off"><button class="sb-button sb-button-icon" type="button" data-action="refresh" title="Refresh files" aria-label="Refresh files">↻</button><button class="sb-button sb-button-icon" type="button" data-action="close" title="Hide directory tree" aria-label="Hide directory tree">×</button></header>
     <div id="directory-tree-items" class="directory-tree__items" role="tree"></div>
   </section>`;
