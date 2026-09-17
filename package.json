@@ -1,6 +1,6 @@
 {
   "name": "silverbullet-personal-plugs",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": true,
   "type": "module",
   "description": "A collection of independently installable SilverBullet plugs",
