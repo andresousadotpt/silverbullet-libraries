@@ -9,6 +9,10 @@ functions:
       - file:deleted
   refresh:
     path: ./directory-tree.ts:refreshTree
+  resetSize:
+    path: ./directory-tree.ts:resetTreeSize
+    command:
+      name: "Directory Tree: Reset Size"
   hide:
     path: ./directory-tree.ts:hideTree
   toggle:

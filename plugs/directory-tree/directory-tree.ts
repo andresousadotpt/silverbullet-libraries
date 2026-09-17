@@ -7,7 +7,8 @@ type FileMeta = { name: string; contentType?: string };
 let visible = true;
 let panel: Panel | undefined;
 const sizeKey = 'directory-tree:size';
-const defaultSize = 1;
+const defaultSizeConfigKey = 'directoryTree.defaultSize';
+const defaultSize = 0.6;
 const minimumSize = 0.35;
 const maximumSize = 2;
 
@@ -46,13 +47,26 @@ export async function toggleTree() {
   else await showTree();
 }
 
+export async function resetTreeSize() {
+  await syscall('clientStore.delete', sizeKey);
+  if (visible) await showTree();
+}
+
+function validPanelSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= minimumSize && value <= maximumSize;
+}
+
 async function panelSize() {
+  let configuredSize = defaultSize;
+  try {
+    const value = await syscall('config.get', defaultSizeConfigKey, defaultSize);
+    if (validPanelSize(value)) configuredSize = value;
+  } catch { /* Use the built-in default when configuration is unavailable. */ }
+
   try {
     const value = await syscall('clientStore.get', sizeKey);
-    return typeof value === 'number' && Number.isFinite(value) && value >= minimumSize && value <= maximumSize
-      ? value
-      : defaultSize;
-  } catch { return defaultSize; }
+    return validPanelSize(value) ? value : configuredSize;
+  } catch { return configuredSize; }
 }
 
 async function panelHtml() {
@@ -126,25 +140,39 @@ function panelScript(model: { nodes: TreeNode[]; currentPath: string }) {
       handle.id = 'directory-tree-resize-handle'; handle.title = 'Drag to resize the directory tree';
       Object.assign(handle.style, { position: 'absolute', insetBlock: '0', insetInlineEnd: '-6px', width: '12px', cursor: 'col-resize', touchAction: 'none', zIndex: '20' });
       panelElement.append(handle);
-      handle.addEventListener('pointerdown', event => {
-        if (event.button !== 0) return;
+      let drag = null;
+      const resize = event => {
+        if (!drag || event.pointerId !== drag.pointerId) return;
         event.preventDefault();
-        const startX = event.clientX;
-        const startSize = Number.parseFloat(panelElement.style.flex) || ${defaultSize};
-        const available = Math.max(320, panelElement.parentElement.getBoundingClientRect().width);
-        const move = moveEvent => {
-          const next = Math.min(${maximumSize}, Math.max(${minimumSize}, startSize + (moveEvent.clientX - startX) * 3 / available));
-          panelElement.style.flex = String(next);
-          handle.dataset.size = String(next);
-        };
-        const stop = () => {
-          hostDocument.removeEventListener('pointermove', move);
-          hostDocument.removeEventListener('pointerup', stop);
-          const next = Number.parseFloat(handle.dataset.size || String(startSize));
-          void syscall('clientStore.set', '${sizeKey}', next);
-        };
-        hostDocument.addEventListener('pointermove', move);
-        hostDocument.addEventListener('pointerup', stop, { once: true });
+        const desiredWidth = Math.min(drag.available * .7, Math.max(160, drag.startWidth + event.clientX - drag.startX));
+        const next = Math.min(${maximumSize}, Math.max(${minimumSize}, desiredWidth * drag.otherGrow / Math.max(1, drag.available - desiredWidth)));
+        panelElement.style.flex = String(next);
+        drag.size = next;
+      };
+      const finish = event => {
+        if (!drag || (event.pointerId !== undefined && event.pointerId !== drag.pointerId)) return;
+        const finished = drag;
+        drag = null;
+        hostDocument.documentElement.style.cursor = finished.previousCursor;
+        hostDocument.documentElement.style.userSelect = finished.previousUserSelect;
+        if (handle.hasPointerCapture(finished.pointerId)) handle.releasePointerCapture(finished.pointerId);
+        void syscall('clientStore.set', '${sizeKey}', finished.size).catch(() => {});
+      };
+      handle.addEventListener('pointermove', resize);
+      handle.addEventListener('pointerup', finish);
+      handle.addEventListener('pointercancel', finish);
+      handle.addEventListener('lostpointercapture', finish);
+      handle.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || drag) return;
+        event.preventDefault();
+        const layout = panelElement.parentElement;
+        const available = Math.max(320, layout.getBoundingClientRect().width);
+        const otherGrow = Array.from(layout.children).filter(child => child !== panelElement).reduce((total, child) => total + (Number.parseFloat(hostDocument.defaultView.getComputedStyle(child).flexGrow) || 0), 0) || 2;
+        const size = Number.parseFloat(panelElement.style.flex) || ${defaultSize};
+        drag = { pointerId: event.pointerId, startX: event.clientX, startWidth: panelElement.getBoundingClientRect().width, available, otherGrow, size, previousCursor: hostDocument.documentElement.style.cursor, previousUserSelect: hostDocument.documentElement.style.userSelect };
+        hostDocument.documentElement.style.cursor = 'col-resize';
+        hostDocument.documentElement.style.userSelect = 'none';
+        handle.setPointerCapture(event.pointerId);
       });
     };
     installResizeHandle();
