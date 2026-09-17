@@ -9,10 +9,6 @@ functions:
       - file:deleted
   refresh:
     path: ./directory-tree.ts:refreshTree
-  increaseSize:
-    path: ./directory-tree.ts:increaseTreeSize
-  decreaseSize:
-    path: ./directory-tree.ts:decreaseTreeSize
   hide:
     path: ./directory-tree.ts:hideTree
   toggle:
