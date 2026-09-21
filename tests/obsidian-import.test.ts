@@ -35,7 +35,7 @@ test('imports nested Markdown and binary attachments byte-for-byte, skips clutte
 });
 
 test('rejects unsafe paths and conflicting destinations', async () => {
-  for (const path of ['/absolute', '../escape', 'a/../b', 'a//b', 'a\\b', 'C:/a', 'a\0b', 'a#section.md', 'trailing./a']) {
+  for (const path of ['/absolute', '../escape', 'a/../b', 'a//b', 'a\\b', 'C:/a', 'C:relative.md', '//server/share', 'a\0b', 'a/./b', 'a\nb']) {
     assert.throws(() => validatePath(path));
   }
   const archive = await openArchive(await zip({ 'a.md': note, 'A.md': note }));
@@ -44,6 +44,27 @@ test('rejects unsafe paths and conflicting destinations', async () => {
   const collision = await openArchive(await zip({ 'folder': note, 'folder/note.md': note }));
   try { assert.throws(() => createPlan(collision, '', false, []), /file\/folder/); }
   finally { await collision.close(); }
+});
+
+test('preserves punctuation, Unicode, and trailing dots/spaces in imported paths', async () => {
+  const paths = [
+    'Vault/Topics/What should we ask?.md',
+    'Vault/Project: notes/Plan #1 @work.md',
+    'Vault/Quotes/"Draft" <review> | ideas*.md',
+    'Vault/Links/100% + [brackets] & apostrophe\'s.md',
+    'Vault/日本語/Café 😀.md',
+    'Vault/Folder./note.md',
+    'Vault/Folder /trailing. ',
+  ];
+  const archive = await openArchive(await zip(Object.fromEntries(paths.map(path => [path, note]))));
+  try {
+    const plan = createPlan(archive, 'Import?', true, []);
+    const { writes, api } = host();
+    const result = await importPlan(plan, api);
+    assert.equal(result.failed.length, 0);
+    assert.deepEqual([...writes.keys()], paths.map(path => 'Import?/' + path.slice('Vault/'.length)));
+    for (const bytes of writes.values()) assert.deepEqual(bytes, note);
+  } finally { await archive.close(); }
 });
 
 test('skips existing case-equivalent paths and file/folder collisions', async () => {

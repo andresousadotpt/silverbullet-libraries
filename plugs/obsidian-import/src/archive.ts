@@ -14,8 +14,11 @@ export type PlannedFile = { entry: FileEntry; path: string };
 export type Plan = { files: PlannedFile[]; skipped: Skipped[] };
 
 export function validatePath(path: string): string {
-  if (!path || path.length > 1024 || /[\\\x00-\x1f\x7f:*?"<>|#@]/.test(path) ||
-    path.split('/').some(part => !part || part === '.' || part === '..' || /[. ]$/.test(part))) {
+  // Punctuation is valid filename data on Linux/macOS. Preserve it rather than
+  // imposing Windows filename rules or interpreting SilverBullet link syntax.
+  // Still reject traversal, Windows drive paths, and ambiguous separators.
+  if (!path || path.length > 1024 || /[\\\x00-\x1f\x7f]/.test(path) || /^[a-z]:/i.test(path) ||
+    path.split('/').some(part => !part || part === '.' || part === '..')) {
     throw new Error(`Unsupported or unsafe path: ${path}`);
   }
   return path;
