@@ -1,4 +1,4 @@
-import { extract, type Plan, type Skipped } from './archive.ts';
+import { extract, type Plan, type Renamed, type Skipped } from './archive.ts';
 
 export type ImportHost = {
   readOnly(): Promise<boolean>;
@@ -6,10 +6,10 @@ export type ImportHost = {
   write(path: string, bytes: Uint8Array): Promise<unknown>;
   progress(done: number, total: number): Promise<unknown>;
 };
-export type ImportResult = { written: string[]; skipped: Skipped[]; failed: Skipped[]; stopped?: string };
+export type ImportResult = { written: string[]; skipped: Skipped[]; renamed: Renamed[]; failed: Skipped[]; stopped?: string };
 
 export async function importPlan(plan: Plan, host: ImportHost): Promise<ImportResult> {
-  const result: ImportResult = { written: [], skipped: [...plan.skipped], failed: [] };
+  const result: ImportResult = { written: [], skipped: [...plan.skipped], renamed: [...plan.renamed], failed: [] };
   for (let index = 0; index < plan.files.length; index++) {
     const { entry, path } = plan.files[index];
     try {
@@ -22,8 +22,10 @@ export async function importPlan(plan: Plan, host: ImportHost): Promise<ImportRe
       result.written.push(path);
     } catch (error) {
       result.failed.push({ path, reason: String(error instanceof Error ? error.message : error) });
-      result.stopped = `${plan.files.length - index - 1} remaining files were not attempted. You can rerun the import; existing files will be skipped.`;
-      break;
+      if (await host.readOnly()) {
+        result.stopped = `${plan.files.length - index - 1} remaining files were not attempted because the space became read-only.`;
+        break;
+      }
     }
     if ((index + 1) % 25 === 0) await host.progress(index + 1, plan.files.length).catch(() => {});
   }

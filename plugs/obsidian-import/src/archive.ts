@@ -1,4 +1,5 @@
 import { ZipReader, Uint8ArrayReader, type Entry, type FileEntry } from '@zip.js/zip.js/index-native.js';
+import { isValidPath } from '@silverbulletmd/silverbullet/lib/ref';
 
 const MiB = 1024 * 1024;
 export const limits = { archive: 1024 * MiB, total: 2048 * MiB, file: 512 * MiB, entries: 10000 };
@@ -10,8 +11,9 @@ export function validateArchiveSize(size: number): void {
 }
 export type Skipped = { path: string; reason: string };
 export type Archive = { entries: FileEntry[]; skipped: Skipped[]; wrapper?: string; close: () => Promise<void> };
-export type PlannedFile = { entry: FileEntry; path: string };
-export type Plan = { files: PlannedFile[]; skipped: Skipped[] };
+export type PlannedFile = { entry: FileEntry; path: string; sourcePath: string };
+export type Renamed = { from: string; to: string; reason: string };
+export type Plan = { files: PlannedFile[]; skipped: Skipped[]; renamed: Renamed[] };
 
 export function validatePath(path: string): string {
   // Punctuation is valid filename data on Linux/macOS. Preserve it rather than
@@ -66,11 +68,38 @@ function ancestors(path: string): string[] {
   return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join('/'));
 }
 
+// SilverBullet routes writable files through its reference parser. Some valid
+// filesystem names (notably `wsl.conf.md`) are interpreted as references and
+// rejected. Keep supported names intact and make only those names writable.
+function makeSilverBulletWritable(path: string): { path: string; renamed?: Renamed } {
+  if (isValidPath(path)) return { path };
+  const rewritten = path.split('/').map(segment => {
+    let next = segment
+      .replaceAll('@', '_at_').replaceAll('#', '_hash_').replaceAll('|', '_pipe_')
+      .replaceAll('<', '_lt_').replaceAll('>', '_gt_').replaceAll('$', '_dollar_')
+      .replaceAll('[[', '_openlink_').replaceAll(']]', '_closelink_');
+    if (next.startsWith('^')) next = `_caret_${next.slice(1)}`;
+    // A Markdown page with an extra dot before `.md` is not writable by
+    // SilverBullet (for example, `wsl.conf.md`). Preserve the visible stem.
+    if (next.toLowerCase().endsWith('.md')) next = `${next.slice(0, -3).replaceAll('.', '_')}.md`;
+    return next;
+  }).join('/');
+  // Every SilverBullet file path needs a terminal extension. This also makes
+  // terminal dots/spaces addressable without relying on server filesystem rules.
+  const withExtension = isValidPath(rewritten) ? rewritten : `${rewritten}.file`;
+  if (!isValidPath(withExtension)) throw new Error(`SilverBullet cannot write this path: ${path}`);
+  return { path: withExtension, renamed: { from: path, to: withExtension, reason: 'SilverBullet writable-path compatibility' } };
+}
+
 export function createPlan(archive: Archive, destination: string, stripWrapper: boolean, existing: string[]): Plan {
   if (destination) validatePath(destination);
-  const files = archive.entries.map(entry => ({ entry, path: validatePath(
-    (destination ? destination + '/' : '') + (stripWrapper && archive.wrapper ? entry.filename.slice(archive.wrapper.length + 1) : entry.filename),
-  ) }));
+  const renamed: Renamed[] = [];
+  const files = archive.entries.map(entry => {
+    const sourcePath = validatePath((destination ? destination + '/' : '') + (stripWrapper && archive.wrapper ? entry.filename.slice(archive.wrapper.length + 1) : entry.filename));
+    const target = makeSilverBulletWritable(sourcePath);
+    if (target.renamed) renamed.push(target.renamed);
+    return { entry, sourcePath, path: target.path };
+  });
   const targets = new Set<string>();
   for (const { path } of files) {
     if (targets.has(key(path))) throw new Error(`Duplicate or case-equivalent ZIP path: ${path}`);
@@ -82,7 +111,7 @@ export function createPlan(archive: Archive, destination: string, stripWrapper: 
   const existingFiles = new Set(existing.map(key));
   const existingDirectories = new Set(existing.flatMap(ancestors).map(key));
   const skipped = [...archive.skipped];
-  return { skipped, files: files.filter(({ path }) => {
+  return { skipped, renamed, files: files.filter(({ path }) => {
     if (existingFiles.has(key(path)) || existingDirectories.has(key(path)) || ancestors(path).some(parent => existingFiles.has(key(parent)))) {
       skipped.push({ path, reason: 'Existing file or file/folder conflict' }); return false;
     }

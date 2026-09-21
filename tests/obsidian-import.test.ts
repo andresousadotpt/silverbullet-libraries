@@ -41,12 +41,12 @@ test('rejects unsafe paths and conflicting destinations', async () => {
   const archive = await openArchive(await zip({ 'a.md': note, 'A.md': note }));
   try { assert.throws(() => createPlan(archive, '', false, []), /case-equivalent/); }
   finally { await archive.close(); }
-  const collision = await openArchive(await zip({ 'folder': note, 'folder/note.md': note }));
+  const collision = await openArchive(await zip({ 'folder.md': note, 'folder.md/note.md': note }));
   try { assert.throws(() => createPlan(collision, '', false, []), /file\/folder/); }
   finally { await collision.close(); }
 });
 
-test('preserves punctuation, Unicode, and trailing dots/spaces in imported paths', async () => {
+test('preserves compatible punctuation and creates aliases for SilverBullet-invalid paths', async () => {
   const paths = [
     'Vault/Topics/What should we ask?.md',
     'Vault/Project: notes/Plan #1 @work.md',
@@ -62,21 +62,48 @@ test('preserves punctuation, Unicode, and trailing dots/spaces in imported paths
     const { writes, api } = host();
     const result = await importPlan(plan, api);
     assert.equal(result.failed.length, 0);
-    assert.deepEqual([...writes.keys()], paths.map(path => 'Import?/' + path.slice('Vault/'.length)));
+    assert.deepEqual([...writes.keys()], [
+      'Import?/Topics/What should we ask?.md',
+      'Import?/Project: notes/Plan _hash_1 _at_work.md',
+      'Import?/Quotes/"Draft" _lt_review_gt_ _pipe_ ideas*.md',
+      'Import?/Links/100% + [brackets] & apostrophe\'s.md',
+      'Import?/日本語/Café 😀.md',
+      'Import?/Folder./note.md',
+      'Import?/Folder /trailing. .file',
+    ]);
+    assert.deepEqual(result.renamed.map(item => [item.from, item.to]), [
+      ['Import?/Project: notes/Plan #1 @work.md', 'Import?/Project: notes/Plan _hash_1 _at_work.md'],
+      ['Import?/Quotes/"Draft" <review> | ideas*.md', 'Import?/Quotes/"Draft" _lt_review_gt_ _pipe_ ideas*.md'],
+      ['Import?/Folder /trailing. ', 'Import?/Folder /trailing. .file'],
+    ]);
     for (const bytes of writes.values()) assert.deepEqual(bytes, note);
+  } finally { await archive.close(); }
+});
+
+test('aliases a Markdown filename with an additional extension so SilverBullet can write it', async () => {
+  const archive = await openArchive(await zip({ 'Vault/Random/wsl.conf.md': note }));
+  try {
+    const plan = createPlan(archive, '', true, []);
+    assert.deepEqual(plan.renamed, [{
+      from: 'Random/wsl.conf.md', to: 'Random/wsl_conf.md', reason: 'SilverBullet writable-path compatibility',
+    }]);
+    const { writes, api } = host();
+    const result = await importPlan(plan, api);
+    assert.deepEqual(result.written, ['Random/wsl_conf.md']);
+    assert.deepEqual(writes.get('Random/wsl_conf.md'), note);
   } finally { await archive.close(); }
 });
 
 test('skips existing case-equivalent paths and file/folder collisions', async () => {
   const archive = await openArchive(await zip({ 'a.md': note, 'folder/note.md': note, 'assets': note }));
   try {
-    const plan = createPlan(archive, '', false, ['A.md', 'folder', 'assets/picture.png']);
+    const plan = createPlan(archive, '', false, ['A.md', 'folder', 'assets.file']);
     assert.equal(plan.files.length, 0);
     assert.equal(plan.skipped.length, 3);
   } finally { await archive.close(); }
 });
 
-test('read-only, late conflicts and write failures preserve existing content and report partial work', async () => {
+test('read-only stops the import while individual write failures are reported and later files continue', async () => {
   const archive = await openArchive(await zip({ 'one.md': note, 'two.md': note, 'three.md': note }));
   try {
     const plan = createPlan(archive, '', false, []);
@@ -90,9 +117,9 @@ test('read-only, late conflicts and write failures preserve existing content and
     const normalWrite = failed.api.write;
     failed.api.write = async (path, bytes) => { if (path === 'two.md') throw new Error('Disk full'); await normalWrite(path, bytes); };
     const result = await importPlan(plan, failed.api);
-    assert.deepEqual(result.written, ['one.md']);
+    assert.deepEqual(result.written, ['one.md', 'three.md']);
     assert.equal(result.failed[0].reason, 'Disk full');
-    assert.match(result.stopped!, /1 remaining/);
+    assert.equal(result.stopped, undefined);
     let checks = 0;
     const changed = host({ readOnly: async () => ++checks > 1 });
     await importPlan(plan, changed.api);

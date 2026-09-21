@@ -15,10 +15,10 @@ for (const scenario of ['import', 'read-only', 'cancel', 'failure', 'existing', 
     await page.route('**/obsidian-import.plug.js', async route => route.fulfill({ contentType: 'text/javascript', body: await readFile('dist/obsidian-import.plug.js') }));
     await page.goto('/');
     const result = await page.evaluate(({ bytes, scenario }) => new Promise<{
-      writes: { path: string; bytes: number[] }[]; notifications: string[]; report: string; previews: string[]; calls: string[];
+      writes: { path: string; bytes: number[] }[]; notifications: string[]; report: string; previews: string[]; calls: string[]; failedOnce: boolean;
     }>((resolve, reject) => {
       const worker = new Worker('/obsidian-import.plug.js', { type: 'module' });
-      const state = { writes: [] as { path: string; bytes: number[] }[], notifications: [] as string[], report: '', previews: [] as string[], calls: [] as string[] };
+      const state = { writes: [] as { path: string; bytes: number[] }[], notifications: [] as string[], report: '', previews: [] as string[], calls: [] as string[], failedOnce: false };
       const timeout = setTimeout(() => { worker.terminate(); reject(new Error('Import timed out')); }, 15000);
       worker.onerror = event => { clearTimeout(timeout); worker.terminate(); reject(new Error(event.message)); };
       worker.onmessage = event => {
@@ -37,7 +37,7 @@ for (const scenario of ['import', 'read-only', 'cancel', 'failure', 'existing', 
           case 'space.listFiles': result = scenario === 'existing' ? [{ name: 'Imported/Notes/deep/Café.md' }] : []; break;
           case 'space.fileExists': result = false; break;
           case 'space.writeFile':
-            if (scenario === 'failure' && state.writes.length === 1) error = 'Synthetic disk failure';
+            if (scenario === 'failure' && state.writes.length === 1 && !state.failedOnce) { state.failedOnce = true; error = 'Synthetic disk failure'; }
             else state.writes.push({ path: msg.args[0], bytes: Array.from(msg.args[1]) });
             break;
           case 'editor.flashNotification': state.notifications.push(msg.args[0]); break;
@@ -54,19 +54,19 @@ for (const scenario of ['import', 'read-only', 'cancel', 'failure', 'existing', 
     } else if (scenario === 'failure') {
       expect(result.writes).toHaveLength(1);
       expect(result.report).toContain('Synthetic disk failure');
-      expect(result.report).toContain('1 imported, 1 skipped, 1 failed');
+      expect(result.report).toContain('1 imported, 1 skipped, 0 renamed, 1 failed');
     } else if (scenario === 'existing') {
       expect(result.writes).toEqual([{ path: 'Imported/assets/image.png', bytes: [0, 255, 128] }]);
-      expect(result.report).toContain('1 imported, 2 skipped, 0 failed');
+      expect(result.report).toContain('1 imported, 2 skipped, 0 renamed, 0 failed');
     } else {
       expect(result.writes).toEqual([
-        { path: scenario === 'punctuation' ? 'Imported/Notes/What? #1 @work <draft>.md' : 'Imported/Notes/deep/Café.md', bytes: Array.from(new TextEncoder().encode('# Café\r\n[[Other]]')) },
+        { path: scenario === 'punctuation' ? 'Imported/Notes/What? _hash_1 _at_work _lt_draft_gt_.md' : 'Imported/Notes/deep/Café.md', bytes: Array.from(new TextEncoder().encode('# Café\r\n[[Other]]')) },
         { path: 'Imported/assets/image.png', bytes: [0, 255, 128] },
       ]);
-      expect(result.report).toContain('2 imported, 1 skipped, 0 failed');
+      expect(result.report).toContain(`2 imported, 1 skipped, ${scenario === 'punctuation' ? '1' : '0'} renamed, 0 failed`);
       expect(result.previews[1]).toContain('1 Markdown notes, 1 attachments');
       if (scenario === 'punctuation') {
-        expect(result.report).toContain('What? #1 @work &lt;draft&gt;.md');
+        expect(result.report).toContain('RENAMED Imported/Notes/What? #1 @work &lt;draft&gt;.md → Imported/Notes/What? _hash_1 _at_work _lt_draft_gt_.md');
         expect(result.report).not.toContain('<draft>');
       }
     }

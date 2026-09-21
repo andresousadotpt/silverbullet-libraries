@@ -8,8 +8,8 @@ const notify = (message: string, type = 'info') => syscall('editor.flashNotifica
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
 async function showReport(result: ImportResult) {
-  const summary = `${result.written.length} imported, ${result.skipped.length} skipped, ${result.failed.length} failed.`;
-  const report = [summary, result.stopped ?? '', ...result.failed.map(item => `FAILED ${item.path}: ${item.reason}`),
+  const summary = `${result.written.length} imported, ${result.skipped.length} skipped, ${result.renamed.length} renamed, ${result.failed.length} failed.`;
+  const report = [summary, result.stopped ?? '', ...result.renamed.map(item => `RENAMED ${item.from} → ${item.to}: ${item.reason}`), ...result.failed.map(item => `FAILED ${item.path}: ${item.reason}`),
     ...result.skipped.map(item => `SKIPPED ${item.path}: ${item.reason}`), ...result.written.map(path => `IMPORTED ${path}`)].join('\n');
   await syscall('editor.showPanel', 'rhs', 1, `<style>:root{color-scheme:light dark}body{background:Canvas;color:CanvasText;font:14px system-ui;padding:1rem}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h2>Obsidian import report</h2><button id="close">Close</button><pre>${escapeHtml(report)}</pre>`,
     `document.getElementById('close').onclick = () => syscall('editor.hidePanel', 'rhs');`);
@@ -36,11 +36,11 @@ export async function importZip() {
     const plan = createPlan(archive, destination.trim(), strip, existing.map(file => file.name));
     const notes = plan.files.filter(file => file.path.toLowerCase().endsWith('.md')).length;
     const preview = [`Import to ${destination.trim() || 'space root'}:`, `${notes} Markdown notes, ${plan.files.length - notes} attachments; ${plan.skipped.length} skipped.`,
-      'Existing files are skipped. Note contents remain unchanged; Obsidian links, embeds and plugin syntax are not converted.',
+      `${plan.renamed.length} paths will be renamed for SilverBullet compatibility; the report records each mapping. Existing files are skipped. Note contents remain unchanged; Obsidian links, embeds and plugin syntax are not converted.`,
       'Import only a trusted vault: SilverBullet can execute Space Lua in Markdown.',
       ...plan.files.slice(0, 15).map(file => file.path), plan.files.length > 15 ? `…and ${plan.files.length - 15} more files.` : '',
       'Start import?'].filter(Boolean).join('\n');
-    if (!plan.files.length) { await showReport({ written: [], skipped: plan.skipped, failed: [] }); return; }
+    if (!plan.files.length) { await showReport({ written: [], skipped: plan.skipped, renamed: plan.renamed, failed: [] }); return; }
     if (!await syscall('editor.confirm', preview)) return;
     await notify(`Importing ${plan.files.length} files…`);
     const result = await importPlan(plan, {
