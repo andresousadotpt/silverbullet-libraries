@@ -1,0 +1,6 @@
+name: obsidian-import
+functions:
+  importZip:
+    path: ./obsidian-import.ts:importZip
+    command:
+      name: "Obsidian: Import ZIP"

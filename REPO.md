@@ -6,6 +6,13 @@ tags: meta/repository
 Independently installable extensions from [silverbullet-plugs](https://github.com/andresousadotpt/silverbullet-plugs).
 
 ```#meta/library/remote
+name: Obsidian Import
+description: Import a vault ZIP with nested Markdown notes and attachments, a preview, and an import report.
+website: https://github.com/andresousadotpt/silverbullet-plugs
+uri: ghr:andresousadotpt/silverbullet-plugs/ObsidianImport.md
+```
+
+```#meta/library/remote
 name: Directory Tree
 description: Browse and open your SilverBullet space through a responsive file and folder tree.
 website: https://github.com/andresousadotpt/silverbullet-plugs

@@ -2,6 +2,22 @@
 
 A repository of independently installable [SilverBullet](https://silverbullet.md/) extensions. Each folder in `plugs/` owns one plug; each page in `libraries/` packages a plug as an installable library. `REPO.md` is the catalog used by SilverBullet's Libraries manager.
 
+## Obsidian Import
+
+Run **Obsidian: Import ZIP** to select an Obsidian vault ZIP from your device. Choose a destination folder (default: `Obsidian import`; empty means the space root), optionally remove a detected enclosing vault folder, and confirm the preview. The plug imports nested `.md` notes and attachments locally, preserving their bytes, and displays a report of imported, skipped, and failed paths.
+
+Install from the catalog or directly with `ghr:andresousadotpt/silverbullet-plugs/ObsidianImport.md` after release. For local installation, run `npm ci` and `npm run build`, copy `dist/obsidian-import.plug.js` into your space, and run **Plugs: Reload**.
+
+- Existing files, including read-only files, are skipped. Case-equivalent names and file/folder conflicts are treated conservatively. Read-only spaces cannot import. Avoid concurrent edits/sync writes to the destination: SilverBullet's existence check and write are not an atomic create-only operation.
+- The importer preserves note contents; it does not rewrite wikilinks, image/note embeds, frontmatter, Dataview queries, or plugin syntax. Obsidian links that depend on basename lookup may need full paths in SilverBullet. Canvas files and other attachments are copied as files; this does not add viewers for their formats.
+- Hidden files/folders (including `.obsidian`, `.git`, `.trash`), `__MACOSX`, `_plug`, symbolic links, and `.plug.js` files are skipped and reported. Empty directories and filesystem timestamps/permissions are not retained. The original ZIP stays on your device.
+- Unsafe or unsupported paths reject the archive, including absolute/parent paths, backslashes, control characters, trailing dots/spaces, and `:*?"<>|#@` characters. Duplicate paths, Unicode/case-equivalent paths, and file/folder collisions inside the ZIP reject the plan instead of choosing a winner.
+- Limits: 100 MiB compressed ZIP, 250 MiB declared extracted content, 50 MiB per file, and 10,000 entries including directories. Actual extraction sizes and CRC checks are verified. Password-protected entries are unsupported. The native picker reads the selected ZIP into memory before its size can be checked.
+- A failure stops further writes and reports partial completion; there is no automatic rollback. Rerun to skip completed files. Imports use SilverBullet's file API; a successful API response is not independent verification of server persistence.
+- Import only trusted vaults: Markdown may contain executable Space Lua. The plug does not sanitize or transform note contents.
+
+Tests use synthetic ZIP archives and a simulated SilverBullet syscall bridge, including the compiled plug running in Chromium. They do not constitute live-space validation.
+
 ## Directory Tree
 
 A file-and-folder tree for the current SilverBullet space. It opens by default in the left panel on desktop and the bottom panel on mobile. Select a file to open it, filter paths, expand folders, and refresh after external file changes. On desktop, drag the panel's right edge to resize it; the size is remembered in `clientStore` for that browser. **Directory Tree: Toggle** hides or restores it; **Directory Tree: Reveal** opens it again; **Directory Tree: Reset Size** returns to the configured default.
