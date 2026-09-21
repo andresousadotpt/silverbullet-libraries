@@ -1,6 +1,13 @@
 import { ZipReader, Uint8ArrayReader, type Entry, type FileEntry } from '@zip.js/zip.js/index-native.js';
 
-export const limits = { archive: 100 * 1024 * 1024, total: 250 * 1024 * 1024, file: 50 * 1024 * 1024, entries: 10000 };
+const MiB = 1024 * 1024;
+export const limits = { archive: 1024 * MiB, total: 2048 * MiB, file: 512 * MiB, entries: 10000 };
+
+export function validateArchiveSize(size: number): void {
+  if (!Number.isSafeInteger(size) || size < 0 || size > limits.archive) {
+    throw new Error(`ZIP exceeds the ${limits.archive / MiB} MiB archive limit.`);
+  }
+}
 export type Skipped = { path: string; reason: string };
 export type Archive = { entries: FileEntry[]; skipped: Skipped[]; wrapper?: string; close: () => Promise<void> };
 export type PlannedFile = { entry: FileEntry; path: string };
@@ -22,7 +29,7 @@ function skipReason(entry: Entry): string | undefined {
 }
 
 export async function openArchive(bytes: Uint8Array): Promise<Archive> {
-  if (bytes.byteLength > limits.archive) throw new Error('ZIP exceeds the 100 MiB archive limit.');
+  validateArchiveSize(bytes.byteLength);
   const reader = new ZipReader(new Uint8ArrayReader(bytes), {
     useWebWorkers: false, useCompressionStream: false, checkSignature: true, strictness: 'strict',
   });
@@ -39,7 +46,7 @@ export async function openArchive(bytes: Uint8Array): Promise<Archive> {
       if (entry.encrypted) throw new Error('Password-protected ZIP entries are not supported.');
       total += entry.uncompressedSize;
       if (!Number.isSafeInteger(entry.uncompressedSize) || entry.uncompressedSize < 0 || entry.uncompressedSize > limits.file || total > limits.total) {
-        throw new Error('ZIP exceeds the 50 MiB per-file or 250 MiB extracted-size limit.');
+        throw new Error(`ZIP exceeds the ${limits.file / MiB} MiB per-file or ${limits.total / MiB} MiB extracted-size limit.`);
       }
       entries.push(entry);
     }
@@ -83,18 +90,20 @@ export function createPlan(archive: Archive, destination: string, stripWrapper: 
 // Bound actual output as well as the ZIP directory's declared sizes. Verify CRC
 // before returning any bytes to the caller, so a corrupt entry cannot be saved.
 export async function extract(entry: FileEntry): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
+  if (!Number.isSafeInteger(entry.uncompressedSize) || entry.uncompressedSize < 0 || entry.uncompressedSize > limits.file) {
+    throw new Error(`File exceeds the ${limits.file / MiB} MiB per-file limit.`);
+  }
+  // Keep one output buffer instead of retaining every chunk and then allocating
+  // another full-file copy. Nothing is returned until size and CRC checks pass.
+  const result = new Uint8Array(entry.uncompressedSize);
   let size = 0;
   await entry.getData(new WritableStream<Uint8Array>({
     write(chunk) {
+      if (size + chunk.length > result.length) throw new Error('Extracted size exceeds the declared size or file limit.');
+      result.set(chunk, size);
       size += chunk.length;
-      if (size > limits.file || size > entry.uncompressedSize) throw new Error('Extracted size exceeds the declared size or file limit.');
-      chunks.push(chunk.slice());
     },
   }), { checkSignature: true });
   if (size !== entry.uncompressedSize) throw new Error('Extracted size does not match the ZIP directory.');
-  const result = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
   return result;
 }

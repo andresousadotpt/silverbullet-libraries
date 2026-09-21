@@ -10,6 +10,6 @@ Run **Obsidian: Import ZIP**, select a vault ZIP, choose a destination folder, a
 
 Note contents are preserved byte-for-byte: Obsidian links, embeds, queries, and plugin syntax are not converted. Hidden configuration/system files and executable SilverBullet plugs are skipped. Import only trusted vaults: Markdown can contain executable Space Lua.
 
-Limits: 100 MiB ZIP, 250 MiB extracted data, 50 MiB per file, and 10,000 archive entries. No encrypted ZIP entries, symbolic links, empty-folder preservation, or automatic rollback. A failure stops the import; completed files remain. Rerunning skips existing files. Avoid concurrent writes to the destination while importing.
+Limits: 1 GiB ZIP, 2 GiB extracted data, 512 MiB per file, and 10,000 archive entries. The ZIP is loaded into browser memory; files are extracted one at a time. Large vaults need sufficient browser memory. No encrypted ZIP entries, symbolic links, empty-folder preservation, or automatic rollback. A failure stops the import; completed files remain. Rerunning skips existing files. Avoid concurrent writes to the destination while importing.
 
 [Instructions and limitations](https://github.com/andresousadotpt/silverbullet-plugs#obsidian-import)
